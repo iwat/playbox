@@ -16,3 +16,7 @@ token = dropBoxBearerToken
 ```
 python3 play.py
 ```
+
+# Credit
+
+This package contains a modification of `playsound.py`, see the master version here: https://github.com/TaylorSMarks/playsound
