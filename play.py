@@ -1,6 +1,7 @@
 import configparser
 import dropbox
 import re
+import sys
 from threading import Thread
 from random import shuffle
 from time import sleep
@@ -133,6 +134,8 @@ def main(stdscr):
             player.next()
         elif re.match("^[0-9]+$", command) != None:
             player.select(int(command))
+        elif command == "q":
+            sys.exit(0)
 
 
 main(None)
