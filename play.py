@@ -1,9 +1,6 @@
 import configparser
 import dropbox
-import json
 import re
-import requests
-from pprint import pprint
 from threading import Thread
 from random import shuffle
 from time import sleep
@@ -12,7 +9,7 @@ from playsound import playsound
 
 
 def disable_ipv6():
-    import requests.packages.urllib3.util.connection as urllib3_cn
+    import requests
     requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
 
