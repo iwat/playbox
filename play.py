@@ -1,7 +1,9 @@
 import configparser
+import dropbox
 import json
 import re
 import requests
+from pprint import pprint
 from threading import Thread
 from random import shuffle
 from time import sleep
@@ -16,21 +18,22 @@ def disable_ipv6():
 
 class Player(Thread):
 
-    def __init__(self, files, dropbox):
+    def __init__(self, files, dbx):
         super().__init__(daemon=True)
         self.files = files
-        self.dropbox = dropbox
+        self.dbx = dbx
         self.index = 0
         self.controller = None
 
         for idx, file in enumerate(files):
-            print(f"{idx}: {file['path_display']}")
+            print(f"{idx}: {file.path_display}")
 
     def run(self):
         while True:
             file = self.files[self.index]
-            print(f"Playing {self.index}: {file['path_lower']}")
-            self.controller = playsound(self.dropbox.get_temp_link(file["path_lower"]), block=False)
+            print(f"Playing {self.index}: {file.path_lower}")
+
+            self.controller = playsound(self.dbx.files_get_temporary_link(file.path_lower).link, block=False)
             sleep(1)
             while not self.controller.is_concluded():
                 sleep(1)
@@ -54,39 +57,43 @@ class Player(Thread):
             self.controller.stop()
 
 
-class Dropbox:
+def build_dropbox(config):
+    if "oauth_refresh_token" in config["playbox"] is not None:
+        dbx = dropbox.Dropbox(
+                oauth2_refresh_token=config["playbox"]["oauth_refresh_token"],
+                app_key=config["playbox"]["dropbox_app_key"],
+                app_secret=config["playbox"]["dropbox_app_secret"])
+        dbx.users_get_current_account()
+        return dbx
+    else:
+        auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
+                consumer_key=config["playbox"]["dropbox_app_key"],
+                consumer_secret=config["playbox"]["dropbox_app_secret"],
+                token_access_type="offline")
 
-    def __init__(self, token):
-        self.token = token
+        authorize_url = auth_flow.start()
+        print("1. Go to: " + authorize_url)
+        print("2. Click \"Allow\" (you might have to log in first).")
+        print("3. Copy the authorization code.")
+        auth_code = input("Enter the authorization code here: ").strip()
 
-    def list_files(self, path):
-        payload = {
-            "path": path,
-            "recursive": False,
-            "include_media_info": False,
-            "include_deleted": False,
-            "include_has_explicit_shared_members": False,
-            "include_mounted_folders": True,
-            "include_non_downloadable_files": True,
-        }
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json",
-        }
-        resp = requests.post("https://api.dropboxapi.com/2/files/list_folder",
-                             headers=headers, data=json.dumps(payload))
-        return resp.json()["entries"]
+        try:
+            oauth_result = auth_flow.finish(auth_code)
+        except Exception as e:
+            print('Error: %s' % (e,))
+            exit(1)
 
-    def get_temp_link(self, path_lower: str) -> str:
-        payload = {"path": path_lower}
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json",
-        }
-        resp = requests.post("https://api.dropboxapi.com/2/files/get_temporary_link",
-                             headers=headers, data=json.dumps(payload))
-        resp_body = resp.json()
-        return resp_body["link"]
+        dbx = dropbox.Dropbox(oauth2_access_token=oauth_result.access_token)
+        dbx.users_get_current_account()
+
+        config = configparser.ConfigParser()
+        config.read("config.ini")
+        config["playbox"]["oauth_access_token"] = oauth_result.access_token
+        config["playbox"]["oauth_refresh_token"] = oauth_result.refresh_token
+        with open("config.ini", "w") as configfile:
+            config.write(configfile)
+
+        return dbx
 
 
 def main(stdscr):
@@ -96,13 +103,20 @@ def main(stdscr):
     if config["playbox"]["disable_ipv6"] == "true":
         disable_ipv6()
 
-    dropbox = Dropbox(config["playbox"]["token"])
+    dbx = build_dropbox(config)
     print("Listing files")
 
-    files = dropbox.list_files(config["playbox"]["path"])
+    files = []
+    result = dbx.files_list_folder(config["playbox"]["path"])
+    files.extend(result.entries)
+
+    while result.has_more:
+        result = dbx.files_list_folder_continue(result.cursor)
+        files.extend(result.entries)
+
     shuffle(files)
 
-    player = Player(files, dropbox)
+    player = Player(files, dbx)
     player.start()
 
     while True:
