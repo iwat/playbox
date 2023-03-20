@@ -15,20 +15,18 @@ def disable_ipv6():
 
 class Player(Thread):
 
-    def __init__(self, files, dbx):
+    def __init__(self, files, dbx, callback):
         super().__init__(daemon=True)
         self.files = files
         self.dbx = dbx
         self.index = 0
+        self.callback = callback
         self.controller = None
-
-        for idx, file in enumerate(files):
-            print(f"{idx}: {file.path_display}")
 
     def run(self):
         while True:
             file = self.files[self.index]
-            print(f"Playing {self.index}: {file.path_lower}")
+            self.callback(self.index, file.path_lower)
 
             self.controller = playsound(self.dbx.files_get_temporary_link(file.path_lower).link, block=False)
             sleep(1)
@@ -112,14 +110,25 @@ def main(stdscr):
         files.extend(result.entries)
 
     shuffle(files)
+    for idx, file in enumerate(files):
+        print(f"{idx}: {file.path_display}")
 
-    player = Player(files, dbx)
+    prompt = False
+
+    def on_play(ndx, path):
+        print(f"\rPlaying {ndx}: {path}")
+        if prompt:
+            print("Command? ", end='', flush=True)
+
+    player = Player(files, dbx, on_play)
     player.start()
 
     while True:
         while not player.is_playing():
             sleep(1)
-        command = input("Command?")
+        prompt = True
+        command = input("Command? ")
+        prompt = False
         if command == "n":
             player.next()
         elif re.match("^[0-9]+$", command) != None:
