@@ -1,6 +1,7 @@
 import configparser
 import dropbox
 import re
+import signal
 import sys
 from threading import Thread
 from random import shuffle
@@ -138,4 +139,9 @@ def main(stdscr):
             sys.exit(0)
 
 
+def handler(signum, frame):
+    sys.exit(1)
+
+
+signal.signal(signal.SIGINT, handler)
 main(None)
