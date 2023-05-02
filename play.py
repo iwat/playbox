@@ -105,11 +105,11 @@ def main(stdscr):
 
     files = []
     result = dbx.files_list_folder(config["playbox"]["path"])
-    files.extend(result.entries)
+    files.extend(filter(lambda e: e.path_lower.endswith(".mp3"), result.entries))
 
     while result.has_more:
         result = dbx.files_list_folder_continue(result.cursor)
-        files.extend(result.entries)
+        files.extend(filter(lambda e: e.path_lower.endswith(".mp3"), result.entries))
 
     shuffle(files)
     for idx, file in enumerate(files):
