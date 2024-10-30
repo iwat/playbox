@@ -248,7 +248,7 @@ def _playsoundAnotherPython(otherPython, sound, block = True, macOS = False):
 
     # Check if the file exists...
     if not exists(abspath(sound)):
-        raise PlaysoundException('Cannot find a sound with filename: ' + sound)
+        raise PlaysoundException(f'Cannot find a sound with filename: {sound}')
 
     playsoundPath = abspath(getsourcefile(lambda: 0))
     t = PropogatingThread(target = lambda: check_call([otherPython, playsoundPath, _handlePathOSX(sound) if macOS else sound]))
