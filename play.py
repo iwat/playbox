@@ -3,6 +3,7 @@ import dropbox
 import re
 import signal
 import sys
+from collections import deque
 from threading import Thread
 from random import shuffle
 from time import sleep
@@ -104,12 +105,22 @@ def main(stdscr):
     print("Listing files")
 
     files = []
-    result = dbx.files_list_folder(config["playbox"]["path"])
-    files.extend(filter(lambda e: e.path_lower.endswith(".mp3"), result.entries))
+    q = deque([('dir', config["playbox"]["path"])])
+    while len(q) > 0:
+        entry_type, entry = q.pop()
+        if entry_type == 'dir':
+            result = dbx.files_list_folder(entry)
+        else:
+            result = dbx.files_list_folder_continue(entry)
 
-    while result.has_more:
-        result = dbx.files_list_folder_continue(result.cursor)
-        files.extend(filter(lambda e: e.path_lower.endswith(".mp3"), result.entries))
+        for e in result.entries:
+            if isinstance(e, dropbox.files.FolderMetadata):
+                q.append(('dir', e.path_lower))
+            elif e.path_lower.endswith(".m4a") or e.path_lower.endswith(".mp3"):
+                files.append(e)
+
+        if result.has_more:
+            q.append(('cursor', result.cursor))
 
     shuffle(files)
     for idx, file in enumerate(files):
