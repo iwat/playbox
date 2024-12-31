@@ -122,7 +122,11 @@ def main(stdscr):
         if result.has_more:
             q.append(('cursor', result.cursor))
 
-    shuffle(files)
+    if len(sys.argv) > 1 and sys.argv[1] == '-s':
+        shuffle(files)
+    else:
+        files = sorted(files, key=lambda f: f.path_display)
+
     for idx, file in enumerate(files):
         print(f"{idx}: {file.path_display}")
 
